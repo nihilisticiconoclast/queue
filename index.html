@@ -1,0 +1,1382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Queues — Notes</title>
+<meta name="description" content="The statistics of waiting in line, explained interactively: Poisson arrivals, exponential gaps, the time to the nth customer, and the M/M/1 and M/M/c queues, each formula derived and run beside a live simulation.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/nihilisticiconoclast/cuddly-lamp@main/assets/tokens.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+  /* page layout only — colour, type and edges come from tokens.css */
+  .masthead{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;border-bottom:var(--rule);padding-bottom:16px;margin-bottom:clamp(28px,5vw,56px)}
+  .brand{display:flex;align-items:center;gap:.7rem}
+  .brand .wordmark{font-family:var(--font-data);font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;color:var(--contour);line-height:1.3}
+  .masthead nav{display:flex;flex-wrap:wrap;gap:.3rem 1.1rem}
+  .masthead nav a{font-family:var(--font-data);font-size:.8rem}
+
+  .controls{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem .7rem;margin:0 0 1.2rem}
+  .controls .btn,.row .btn{padding:.5rem .9rem;font-size:.9rem}
+  .controls label,.lbl{font-family:var(--font-data);font-size:.78rem;color:var(--contour);letter-spacing:.06em}
+  .btn[aria-pressed="true"]{background:var(--index);border-color:var(--index);color:var(--paper)}
+  .btn:disabled{opacity:.45;cursor:default}
+
+  .readout{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:var(--rule);border-bottom:var(--rule);margin:0 0 1.4rem}
+  .readout div{padding:.7rem .9rem .7rem 0}
+  .readout dt{font-family:var(--font-data);font-size:.74rem;letter-spacing:.08em;color:var(--contour);text-transform:uppercase}
+  .readout dd{margin:0;font-family:var(--font-display);font-size:var(--step-2);font-weight:560;font-variant-numeric:tabular-nums;color:var(--ink);line-height:1.25}
+  .readout dd small{display:block;font-family:var(--font-data);font-size:.74rem;font-weight:400;color:var(--contour);letter-spacing:.02em}
+  @media (max-width:560px){.readout{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+  .instrument{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:clamp(20px,3vw,44px);align-items:start;margin:1.6rem 0 1.4rem}
+  @media (max-width:820px){.instrument{grid-template-columns:minmax(0,1fr)}}
+  .pane h3{font-size:var(--step-1);margin-bottom:.2em}
+  .pane .caption{margin:0 0 .6rem}
+  .plot{position:relative;width:100%;aspect-ratio:3/2;border:1px solid color-mix(in srgb,var(--contour) 38%,transparent)}
+  .plot.strip{aspect-ratio:5/2}
+  .plot.tall{aspect-ratio:4/3}
+  .plot canvas{position:absolute;inset:0;width:100%;height:100%}
+  .plot canvas.grab{cursor:ew-resize;touch-action:pan-y}
+
+  .sliders{display:grid;grid-template-columns:auto minmax(0,1fr) 6.4rem;gap:.55rem .8rem;align-items:center;margin:1rem 0 .9rem}
+  .sliders input{width:100%;accent-color:var(--index)}
+  .sliders output{font-family:var(--font-data);font-size:.86rem;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .row{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem .8rem;margin:.4rem 0}
+  select,input[type=number]{font-family:var(--font-data);font-size:.9rem;background:transparent;color:var(--ink);border:1px solid var(--index);border-radius:0;padding:.35rem .5rem}
+  input[type=number]{width:5.4rem}
+  .fields{display:flex;flex-wrap:wrap;gap:.8rem 1.4rem;margin:1rem 0 1.2rem}
+  .fields label{display:flex;flex-direction:column;gap:.3rem;font-family:var(--font-data);font-size:.74rem;color:var(--contour);letter-spacing:.06em;text-transform:uppercase}
+  .score{font-family:var(--font-data);font-size:.84rem;color:var(--ink);margin:.7rem 0 0;max-width:none;line-height:1.6}
+  .score b{font-family:var(--font-display);font-size:var(--step-1);font-weight:560}
+
+  .eqs{border-top:var(--rule)}
+  .eq{display:grid;grid-template-columns:7.4rem minmax(0,1fr);gap:.8rem;padding:.75rem 0;border-bottom:var(--rule);align-items:center}
+  .eq .katex{font-size:.98em}
+  .eq .lab{font-family:var(--font-data);font-size:.78rem;color:var(--contour);line-height:1.4}
+  .eq .lab b{display:block;font-family:var(--font-body);font-weight:600;font-size:.95rem;color:var(--ink)}
+  .eq .math{overflow-x:auto;overflow-y:hidden;min-width:0}
+  .eq .katex-display{margin:.15rem 0;text-align:left}
+  .eq .katex-display>.katex{text-align:left}
+  @media (max-width:700px){.eq{grid-template-columns:minmax(0,1fr);gap:.25rem}}
+
+  .rk{border-top:var(--rule);margin:0 0 1.2rem}
+  .rk h4{font-family:var(--font-data);font-size:.74rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--contour);margin:1.3rem 0 .5rem}
+  .rk .q{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr) 7rem;gap:.8rem;padding:.6rem 0;border-top:var(--rule);align-items:center}
+  .rk .q>span:first-child{font-size:.95rem}
+  .rk .q .math{overflow-x:auto;overflow-y:hidden;min-width:0}
+  .rk .q .katex-display{margin:0;text-align:left}
+  .rk .q .katex-display>.katex{text-align:left;font-size:.95em}
+  .rk .q b{font-family:var(--font-display);font-size:var(--step-1);font-weight:560;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  @media (max-width:700px){.rk .q{grid-template-columns:minmax(0,1fr) auto;gap:.2rem .8rem}.rk .q .math{grid-column:1/-1;order:3}}
+
+  .tablewrap{overflow-x:auto}
+  table.data{border-collapse:collapse;font-family:var(--font-data);font-size:.82rem;font-variant-numeric:tabular-nums;margin:.8rem 0 0;width:100%}
+  table.data th,table.data td{text-align:right;padding:.36rem 1rem .36rem 0;border-top:var(--rule);white-space:nowrap}
+  table.data th:first-child,table.data td:first-child{text-align:left}
+  table.data th{color:var(--contour);font-weight:500}
+  table.data tr.pick td{border-top:1px solid var(--index);border-bottom:1px solid var(--index);font-weight:600}
+  table.data td.dim{color:var(--contour)}
+
+  .katex{color:var(--ink);font-size:1.06em}
+  .disp{overflow-x:auto;overflow-y:hidden;padding:.15rem 0;max-width:var(--measure)}
+  .disp .katex-display{margin:.6rem 0}
+  .prose h2{margin-top:.2em}
+  .prose h3{margin-top:1.6rem}
+  .note{color:var(--contour);font-family:var(--font-data);font-size:.82rem;margin-top:2.5rem}
+  .sources{font-size:.92rem}
+</style>
+</head>
+<body data-seed="queue">
+<main class="wrap">
+
+  <div class="masthead">
+    <div class="brand">
+      <span class="sig" id="sig"></span>
+      <span class="wordmark">Notes<br>Probability</span>
+    </div>
+    <nav aria-label="On this page">
+      <a href="#arrivals">Arrivals</a><a href="#gaps">Gaps</a><a href="#nth">The nth</a><a href="#queue">The queue</a><a href="#tills">More tills</a><a href="#knee">Variability</a><a href="#reckoner">Reckoner</a>
+    </nav>
+  </div>
+
+  <p class="eyebrow">Probability · queueing theory</p>
+  <h1>Nobody arrives on schedule</h1>
+  <p class="lede">A coffee kiosk serves one customer a minute, on average, and can make a
+  drink in forty-eight seconds, on average. It ought to keep up easily. Instead it has four
+  people at it on average, and a wait of over three minutes. The reason is in the two words &lsquo;on
+  average&rsquo;, and two distributions account for nearly all of it: the Poisson, for how
+  many people turn up, and the exponential, for how long until the next one. This page
+  starts at the door, builds up to the queue, derives each formula and runs a simulation
+  beside it so the two can be compared.</p>
+
+  <div class="doodle" id="doodle"></div>
+
+  <hr>
+
+  <!-- ─────────────────────────────── 1 · arrivals ─────────────────────────────── -->
+  <section id="arrivals" class="prose">
+    <h2>Counting arrivals</h2>
+    <p>Suppose customers come through the door independently of one another, one at a
+    time, at a steady average rate of <span class="tx">\lambda</span> per minute. Nobody
+    coordinates, and the rate at ten past is the same as the rate at twenty past. How many
+    arrive in a window of <span class="tx">t</span> minutes?</p>
+    <p>Chop the window into <span class="tx">m</span> slivers, each so short that it can
+    hold at most one arrival. Each sliver then contains an arrival with probability
+    <span class="tx">\lambda t/m</span>, independently of the others, so the count is
+    binomial. Let the slivers shrink:</p>
+    <div class="disp">P(N(t)=k)=\binom{m}{k}\Bigl(\frac{\lambda t}{m}\Bigr)^{k}\Bigl(1-\frac{\lambda t}{m}\Bigr)^{m-k}\;\xrightarrow{\;m\to\infty\;}\;e^{-\lambda t}\,\frac{(\lambda t)^{k}}{k!}</div>
+    <p>That limit is the Poisson distribution with mean <span class="tx">\lambda t</span>.
+    The binomial coefficient supplies the <span class="tx">1/k!</span>, and the long run of
+    empty slivers supplies the <span class="tx">e^{-\lambda t}</span>. Its variance is also
+    <span class="tx">\lambda t</span>, which is the first thing to check in real data: if
+    the counts per window vary much more than their mean, the arrivals are not as
+    independent as assumed.</p>
+    <p>Below, a door is being watched. Each dot is one arrival, and time is cut into
+    windows of <span class="tx">t</span> minutes with the count written above each. The
+    chart collects those counts and sets them against the formula.</p>
+  </section>
+
+  <div class="controls">
+    <button class="btn" id="d-play" type="button" aria-pressed="false">Play</button>
+    <button class="btn" id="d-ff" type="button">+1,000 windows</button>
+    <button class="btn" id="d-reset" type="button">Reset</button>
+  </div>
+
+  <dl class="readout">
+    <div><dt>Windows seen</dt><dd id="d-n">0</dd></div>
+    <div><dt>Mean count</dt><dd id="d-mean">–</dd></div>
+    <div><dt>Variance</dt><dd id="d-var">–</dd></div>
+    <div><dt>None at all</dt><dd id="d-zero">–</dd></div>
+  </dl>
+
+  <div class="instrument" id="i-door">
+    <section class="pane">
+      <h3>The door</h3>
+      <p class="caption" id="d-cap">the last six windows · one dot per arrival · count above</p>
+      <div class="plot strip"><canvas id="cv-strip" role="img" aria-label="A scrolling timeline of arrivals, divided into windows with the number of arrivals written above each"></canvas></div>
+      <div class="sliders">
+        <label class="lbl" for="s-lam">λ · rate</label><input type="range" id="s-lam" min="0.2" max="4" step="0.1" value="1"><output id="o-lam" for="s-lam"></output>
+        <label class="lbl" for="s-win">t · window</label><input type="range" id="s-win" min="1" max="10" step="0.5" value="5"><output id="o-win" for="s-win"></output>
+      </div>
+    </section>
+    <section class="pane">
+      <h3>Arrivals per window</h3>
+      <p class="caption">bars: share of windows seen · marks: the Poisson formula</p>
+      <div class="plot"><canvas id="cv-pois" role="img" aria-label="Histogram of the number of arrivals per window against the Poisson probabilities"></canvas></div>
+    </section>
+  </div>
+
+  <div class="prose">
+    <p>With only a few dozen windows the bars are ragged; press <em>+1,000 windows</em> and
+    they settle onto the marks. Notice how uneven the door looks even though nothing about
+    the customers changes: clumps of three or four, then a long empty stretch. That
+    unevenness is not a departure from randomness. It is what a constant rate looks like,
+    and it is the whole cause of queues.</p>
+  </div>
+
+  <hr>
+
+  <!-- ─────────────────────────────── 2 · gaps ─────────────────────────────── -->
+  <section id="gaps" class="prose">
+    <h2>The gap to the next one</h2>
+    <p>Turn the question round. Instead of counting arrivals in a fixed time, time the
+    wait for one arrival. The gap <span class="tx">T</span> is longer than
+    <span class="tx">t</span> exactly when the window of length <span class="tx">t</span>
+    is empty, and the Poisson formula with <span class="tx">k=0</span> gives that at
+    once:</p>
+    <div class="disp">P(T&gt;t)=P(N(t)=0)=e^{-\lambda t},\qquad f(t)=\lambda e^{-\lambda t},\qquad \mathbb{E}[T]=\frac{1}{\lambda}</div>
+    <p>This is the exponential distribution. Its mean and its standard deviation are both
+    <span class="tx">1/\lambda</span>, its median is the shorter
+    <span class="tx">\ln 2/\lambda</span>, and its most likely value is zero: short gaps
+    are the commonest kind, which is where the clumps come from.</p>
+    <h3>It does not remember</h3>
+    <p>Suppose you have already waited <span class="tx">s</span> minutes and nobody has
+    come. How much longer?</p>
+    <div class="disp">P(T&gt;s+t\mid T&gt;s)=\frac{e^{-\lambda(s+t)}}{e^{-\lambda s}}=e^{-\lambda t}</div>
+    <p>Exactly as long as if you had just started. The exponential is the only continuous
+    distribution with this property, and it is what makes the later formulas tractable:
+    the future of the queue depends on how many people are in it, and not on how long any
+    of them has been there. The chart shows the gaps between the arrivals at the door
+    above. Slide <span class="tx">s</span> and the red outline redraws the remaining wait
+    for only those gaps that lasted beyond <span class="tx">s</span>. It lands on the
+    original curve every time.</p>
+  </section>
+
+  <dl class="readout">
+    <div><dt>Gaps seen</dt><dd id="g-n">0</dd></div>
+    <div><dt>Mean gap</dt><dd id="g-mean">–</dd></div>
+    <div><dt>Longer than s</dt><dd id="g-surv">–</dd></div>
+    <div><dt>Mean wait after s</dt><dd id="g-rem">–</dd></div>
+  </dl>
+
+  <div class="instrument" id="i-gaps">
+    <section class="pane">
+      <h3>Gaps between arrivals</h3>
+      <p class="caption">bars: gaps seen · line: λe<sup>−λt</sup> · red: the wait still to come after s</p>
+      <div class="plot"><canvas id="cv-gaps" role="img" aria-label="Histogram of the gaps between arrivals with the exponential density, and the distribution of the remaining wait after s minutes overlaid"></canvas></div>
+    </section>
+    <section class="pane">
+      <h3>Already waiting</h3>
+      <p class="caption">the same door as above, so λ is the same slider</p>
+      <div class="sliders">
+        <label class="lbl" for="s-lam2">λ · rate</label><input type="range" id="s-lam2" min="0.2" max="4" step="0.1" value="1"><output id="o-lam2" for="s-lam2"></output>
+        <label class="lbl" for="s-s">s · waited</label><input type="range" id="s-s" min="0" max="3" step="0.05" value="1"><output id="o-s" for="s-s"></output>
+      </div>
+      <div class="row"><button class="btn" id="g-ff" type="button">+1,000 arrivals</button></div>
+      <p class="score" id="g-bus"></p>
+    </section>
+  </div>
+
+  <div class="prose">
+    <h3>The bus-stop paradox</h3>
+    <p>If buses come at random every ten minutes on average and you turn up at a random
+    moment, the lack of memory says your expected wait is the full ten minutes, not five.
+    That looks wrong, since you must arrive partway through a gap. The resolution is that
+    you are more likely to land in a long gap than a short one, in proportion to its
+    length, so the gap you land in averages <span class="tx">2/\lambda</span>, twice the
+    typical one, and half of that is <span class="tx">1/\lambda</span>. The figures under
+    the sliders measure both from the gaps seen so far. The same effect is why the queue
+    you find on arrival tends to be longer than the average queue the staff would
+    report.</p>
+  </div>
+
+  <hr>
+
+  <!-- ─────────────────────────────── 3 · the nth ─────────────────────────────── -->
+  <section id="nth" class="prose">
+    <h2>Waiting for the nth customer</h2>
+    <p>The time until the <span class="tx">n</span>th arrival,
+    <span class="tx">S_n</span>, is the sum of <span class="tx">n</span> independent
+    exponential gaps. Its mean and variance simply add up, and its distribution is called
+    the Erlang (a gamma distribution with a whole-number shape):</p>
+    <div class="disp">\mathbb{E}[S_n]=\frac{n}{\lambda},\qquad \operatorname{sd}(S_n)=\frac{\sqrt{n}}{\lambda},\qquad f_n(t)=\frac{\lambda^{n}t^{\,n-1}e^{-\lambda t}}{(n-1)!}</div>
+    <p>To find the chance that the <span class="tx">n</span>th customer has arrived by
+    time <span class="tx">t</span> there is no need to integrate that density. The
+    <span class="tx">n</span>th arrival has happened by <span class="tx">t</span> exactly
+    when at least <span class="tx">n</span> arrivals have been counted by
+    <span class="tx">t</span>, so the answer is a Poisson tail:</p>
+    <div class="disp">P(S_n\le t)=P(N(t)\ge n)=1-\sum_{k=0}^{n-1}e^{-\lambda t}\,\frac{(\lambda t)^{k}}{k!}</div>
+    <p>The two charts show the two sides of that identity. On the left, the shaded area is
+    the part of the waiting-time curve before <span class="tx">t</span>. On the right, the
+    filled bars are the counts of <span class="tx">n</span> or more. The two shaded
+    amounts are always equal. Drag across the left chart to move
+    <span class="tx">t</span>.</p>
+  </section>
+
+  <dl class="readout">
+    <div><dt>Mean wait</dt><dd id="n-mean">–</dd></div>
+    <div><dt>Std deviation</dt><dd id="n-sd">–</dd></div>
+    <div><dt>Arrived by t</dt><dd id="n-p">–</dd></div>
+    <div><dt>90% sure by</dt><dd id="n-q">–</dd></div>
+  </dl>
+
+  <div class="instrument" id="i-nth">
+    <section class="pane">
+      <h3>Time of the nth arrival</h3>
+      <p class="caption">the Erlang density · shaded: arrived by t · drag to move t</p>
+      <div class="plot"><canvas id="cv-erl" class="grab" role="img" aria-label="Erlang density for the time of the nth arrival with the area before t shaded"></canvas></div>
+      <div class="sliders">
+        <label class="lbl" for="s-n">n · customer</label><input type="range" id="s-n" min="1" max="40" step="1" value="10"><output id="o-n" for="s-n"></output>
+        <label class="lbl" for="s-lam3">λ · rate</label><input type="range" id="s-lam3" min="0.2" max="4" step="0.1" value="1"><output id="o-lam3" for="s-lam3"></output>
+        <label class="lbl" for="s-t3">t · deadline</label><input type="range" id="s-t3" min="0" max="1" step="0.005" value="0.4"><output id="o-t3" for="s-t3"></output>
+      </div>
+    </section>
+    <section class="pane">
+      <h3>Arrivals counted by t</h3>
+      <p class="caption">Poisson with mean λt · filled: n or more</p>
+      <div class="plot"><canvas id="cv-dual" role="img" aria-label="Poisson probabilities for the number of arrivals by time t, with the bars for n or more filled"></canvas></div>
+      <div class="eqs" style="margin-top:1rem">
+        <div class="eq"><div class="lab"><b>Mean</b>n gaps of 1/λ</div><div class="math" id="e-n1"></div></div>
+        <div class="eq"><div class="lab"><b>By t</b>a Poisson tail</div><div class="math" id="e-n2"></div></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="prose">
+    <p>Two things are worth seeing here. With <span class="tx">n=1</span> the curve is the
+    exponential again, piled against zero. As <span class="tx">n</span> grows it moves
+    right and turns into a bell, because a sum of many independent gaps is approximately
+    normal, with mean <span class="tx">n/\lambda</span> and standard deviation
+    <span class="tx">\sqrt{n}/\lambda</span>. And the relative spread,
+    <span class="tx">1/\sqrt{n}</span>, shrinks: the tenth customer&rsquo;s arrival time is
+    uncertain by about a third of its mean, the hundredth&rsquo;s by a tenth.</p>
+  </div>
+
+  <hr>
+
+  <!-- ─────────────────────────────── 4 · rules ─────────────────────────────── -->
+  <section id="rules" class="prose">
+    <h2>Merging, splitting and racing</h2>
+    <p>Three facts about Poisson streams do most of the work in practice, and all three
+    come from the sliver argument.</p>
+    <p><strong>Merging.</strong> Two independent Poisson streams, at rates
+    <span class="tx">\lambda_1</span> and <span class="tx">\lambda_2</span>, combine into a
+    single Poisson stream at rate <span class="tx">\lambda_1+\lambda_2</span>. Customers
+    from the platform and from the street make one stream at the kiosk.</p>
+    <p><strong>Splitting.</strong> If each arrival is independently of one kind with
+    probability <span class="tx">p</span>, the arrivals of that kind form a Poisson stream
+    at rate <span class="tx">p\lambda</span>, the rest form one at rate
+    <span class="tx">(1-p)\lambda</span>, and the two are independent of each other.
+    Knowing how many coffees were ordered in the last hour tells you nothing about how
+    many teas.</p>
+    <p><strong>Racing.</strong> If two exponential clocks run side by side at rates
+    <span class="tx">\mu_A</span> and <span class="tx">\mu_B</span>, the first to ring
+    does so after an exponential time at rate <span class="tx">\mu_A+\mu_B</span>, and it
+    is clock A with probability <span class="tx">\mu_A/(\mu_A+\mu_B)</span>. This is what
+    governs two baristas working at once, or the contest between the next arrival and the
+    next departure.</p>
+  </section>
+
+  <div class="instrument" id="i-rules">
+    <section class="pane">
+      <h3>One stream, split in two</h3>
+      <p class="caption">thirty minutes at the door · each arrival is a coffee with probability p</p>
+      <div class="plot strip"><canvas id="cv-lanes" role="img" aria-label="Three timelines: all arrivals, those ordering coffee and the rest"></canvas></div>
+      <div class="sliders">
+        <label class="lbl" for="s-lam4">λ · rate</label><input type="range" id="s-lam4" min="0.2" max="4" step="0.1" value="1.5"><output id="o-lam4" for="s-lam4"></output>
+        <label class="lbl" for="s-p">p · coffee</label><input type="range" id="s-p" min="0" max="1" step="0.05" value="0.6"><output id="o-p" for="s-p"></output>
+      </div>
+      <div class="row"><button class="btn" id="l-new" type="button">New half hour</button></div>
+      <p class="score" id="l-out"></p>
+    </section>
+    <section class="pane">
+      <h3>Two baristas, one race</h3>
+      <p class="caption">both start a drink now · who finishes first, and when?</p>
+      <div class="sliders">
+        <label class="lbl" for="s-ra">μ<sub>A</sub></label><input type="range" id="s-ra" min="0.2" max="4" step="0.1" value="1.5"><output id="o-ra" for="s-ra"></output>
+        <label class="lbl" for="s-rb">μ<sub>B</sub></label><input type="range" id="s-rb" min="0.2" max="4" step="0.1" value="1"><output id="o-rb" for="s-rb"></output>
+      </div>
+      <div class="eqs">
+        <div class="eq"><div class="lab"><b>A wins</b>share of the rate</div><div class="math" id="e-r1"></div></div>
+        <div class="eq"><div class="lab"><b>First drink</b>rates add</div><div class="math" id="e-r2"></div></div>
+      </div>
+      <p class="score" id="r-out"></p>
+    </section>
+  </div>
+
+  <div class="prose">
+    <p>One more fact is useful for checking data. Given that exactly
+    <span class="tx">n</span> customers arrived in a window, their arrival times are
+    scattered over it uniformly and independently, as if each had picked a moment with a
+    pin. If the arrivals in your data bunch towards one end of the hour, the rate was not
+    constant over that hour.</p>
+  </div>
+
+  <hr>
+
+  <!-- ─────────────────────────────── 5 · the queue ─────────────────────────────── -->
+  <section id="queue" class="prose">
+    <h2>One server, and the line behind</h2>
+    <p>Now put a counter behind the door. Customers arrive in a Poisson stream at rate
+    <span class="tx">\lambda</span>. One server takes an exponential time over each, at
+    rate <span class="tx">\mu</span> per minute, so a mean of
+    <span class="tx">1/\mu</span> minutes. Anyone who finds the server busy waits in line,
+    first come first served. This is the M/M/1 queue. The single number that matters
+    most is the traffic intensity, the fraction of time the server has to be working:</p>
+    <div class="disp">\rho=\frac{\lambda}{\mu}</div>
+    <p>If <span class="tx">\rho\ge 1</span> work arrives faster than it can be done and
+    the line grows without limit. If <span class="tx">\rho&lt;1</span> the queue settles
+    into a statistical equilibrium, and finding it takes one observation. In the long run
+    the number of times the system steps up from <span class="tx">n</span> customers to
+    <span class="tx">n+1</span> must equal the number of times it steps back down. Steps
+    up happen at rate <span class="tx">\lambda</span> while there are
+    <span class="tx">n</span> present, steps down at rate <span class="tx">\mu</span> while
+    there are <span class="tx">n+1</span>, so with <span class="tx">p_n</span> the fraction
+    of time spent with <span class="tx">n</span> in the system,</p>
+    <div class="disp">\lambda\,p_n=\mu\,p_{n+1}\quad\Longrightarrow\quad p_n=(1-\rho)\,\rho^{\,n}</div>
+    <p>a geometric distribution. Everything else follows from it. The server is idle a
+    fraction <span class="tx">p_0=1-\rho</span> of the time. The mean number in the system
+    is the mean of that geometric distribution, and the mean time each customer spends
+    comes from Little&rsquo;s law, <span class="tx">L=\lambda W</span>, which holds for any
+    queue at all: the people present as you leave are the ones who arrived during your
+    stay.</p>
+    <div class="disp">L=\frac{\rho}{1-\rho},\qquad W=\frac{L}{\lambda}=\frac{1}{\mu-\lambda},\qquad W_q=W-\frac{1}{\mu}=\frac{\rho}{\mu-\lambda},\qquad L_q=\lambda W_q=\frac{\rho^{2}}{1-\rho}</div>
+    <p>Here <span class="tx">L</span> and <span class="tx">W</span> count the customer
+    being served, and <span class="tx">L_q</span> and <span class="tx">W_q</span> count only
+    the line. The whole distribution of the wait is available too: a customer&rsquo;s total
+    time in the system is itself exponential, at rate <span class="tx">\mu-\lambda</span>,
+    and the chance of queueing for longer than <span class="tx">t</span> is</p>
+    <div class="disp">P(W_q&gt;t)=\rho\,e^{-(\mu-\lambda)t}</div>
+    <p>The counter below is running with the kiosk&rsquo;s numbers: one arrival a minute,
+    1.25 served a minute, so <span class="tx">\rho=0.8</span>. Watch it for a while, then
+    push <span class="tx">\lambda</span> towards <span class="tx">\mu</span>.</p>
+  </section>
+
+  <div class="controls">
+    <button class="btn" id="q-play" type="button" aria-pressed="false">Play</button>
+    <label for="q-speed">SPEED</label>
+    <select id="q-speed"><option value="1">1 min per second</option><option value="10" selected>10 min per second</option><option value="100">100 min per second</option></select>
+    <button class="btn" id="q-reset" type="button">Empty and restart</button>
+  </div>
+
+  <dl class="readout">
+    <div><dt>Busy · ρ</dt><dd id="q-rho">–</dd></div>
+    <div><dt>In the system now</dt><dd id="q-now">0</dd></div>
+    <div><dt>Mean wait in line</dt><dd id="q-wq">–</dd></div>
+    <div><dt>Customers served</dt><dd id="q-served">0</dd></div>
+  </dl>
+
+  <div class="instrument" id="i-queue">
+    <section class="pane">
+      <h3>The counter</h3>
+      <p class="caption" id="q-cap">squares: servers · circles: the line, amber the longer they have waited</p>
+      <div class="plot tall"><canvas id="cv-counter" role="img" aria-label="Animated queue: servers on the right, waiting customers lined up to the left, and below it the number in the system over time"></canvas></div>
+      <div class="sliders">
+        <label class="lbl" for="s-ql">λ · arrivals</label><input type="range" id="s-ql" min="0.2" max="6" step="0.05" value="1"><output id="o-ql" for="s-ql"></output>
+        <label class="lbl" for="s-qm">μ · service</label><input type="range" id="s-qm" min="0.25" max="3" step="0.05" value="1.25"><output id="o-qm" for="s-qm"></output>
+        <label class="lbl" for="s-qc">c · servers</label><input type="range" id="s-qc" min="1" max="6" step="1" value="1"><output id="o-qc" for="s-qc"></output>
+      </div>
+    </section>
+    <section class="pane">
+      <h3>The long run</h3>
+      <p class="caption">bars: share of time with n in the system · marks: the formula</p>
+      <div class="plot"><canvas id="cv-states" role="img" aria-label="Share of time spent with each number of customers in the system, simulated against the theoretical distribution"></canvas></div>
+      <div class="tablewrap">
+        <table class="data">
+          <thead><tr><th>long-run average</th><th>simulated</th><th>formula</th></tr></thead>
+          <tbody id="q-table"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="prose">
+    <p>The simulated column wanders towards the formula column and takes its time about
+    it, and it takes longer the busier the server is. That slowness is a property of
+    queues and not of the simulation: congestion comes in long episodes, so a busy system
+    has to be watched for a long time before its averages mean anything. An hour&rsquo;s
+    observation of a real counter at <span class="tx">\rho=0.9</span> tells you very
+    little.</p>
+    <p>Set <span class="tx">\lambda</span> above <span class="tx">\mu</span> and the
+    formula column gives up. There is no equilibrium, and the line grows at about
+    <span class="tx">\lambda-\mu</span> customers a minute for as long as you let it.</p>
+  </div>
+
+  <hr>
+
+  <!-- ─────────────────────────────── 6 · more tills ─────────────────────────────── -->
+  <section id="tills" class="prose">
+    <h2>More tills</h2>
+    <p>With <span class="tx">c</span> identical servers fed from one line, the M/M/c
+    queue, the same balancing argument applies. Steps up still happen at rate
+    <span class="tx">\lambda</span>, but steps down happen at
+    <span class="tx">n\mu</span> while <span class="tx">n</span> servers are busy, and at
+    <span class="tx">c\mu</span> once all of them are. Write
+    <span class="tx">a=\lambda/\mu</span> for the offered load, the number of servers the
+    work would occupy if it arrived evenly, and <span class="tx">\rho=a/c</span> for the
+    share of each server&rsquo;s time that is taken. The chance that an arriving customer
+    finds every server busy and has to wait is Erlang&rsquo;s C formula:</p>
+    <div class="disp">C(c,a)=\frac{\dfrac{a^{c}}{c!}\,\dfrac{1}{1-\rho}}{\displaystyle\sum_{k=0}^{c-1}\frac{a^{k}}{k!}+\frac{a^{c}}{c!}\,\frac{1}{1-\rho}}</div>
+    <p>Once everyone is busy the system empties at rate <span class="tx">c\mu</span> and
+    behaves like a single fast server, which gives the rest:</p>
+    <div class="disp">W_q=\frac{C(c,a)}{c\mu-\lambda},\qquad P(W_q&gt;t)=C(c,a)\,e^{-(c\mu-\lambda)t},\qquad L_q=\lambda W_q</div>
+    <p>With <span class="tx">c=1</span> these reduce to the formulas of the last section.
+    The counter above already understands them: raise its <span class="tx">c</span> slider
+    and both of its columns follow.</p>
+    <h3>How many do you need?</h3>
+    <p>The usual practical question runs the formula backwards. Given the arrival rate and
+    the time a service takes, how many servers are needed so that a stated share of
+    customers wait no longer than a stated time? Set the four numbers and the table
+    answers for each staffing level, with the smallest one that meets the target picked
+    out.</p>
+  </section>
+
+  <div class="fields">
+    <label>Arrivals per minute<input type="number" id="t-lam" min="0.1" max="60" step="0.1" value="4"></label>
+    <label>Minutes per service<input type="number" id="t-s" min="0.05" max="30" step="0.05" value="1"></label>
+    <label>Wait no longer than (min)<input type="number" id="t-t" min="0" max="30" step="0.25" value="1"></label>
+    <label>For this share (%)<input type="number" id="t-sl" min="1" max="99.9" step="1" value="90"></label>
+  </div>
+
+  <div class="instrument" id="i-tills">
+    <section class="pane">
+      <h3 id="t-head">Staffing</h3>
+      <p class="caption">one line feeding c servers · last column: c separate lines instead</p>
+      <div class="tablewrap">
+        <table class="data">
+          <thead><tr><th>servers</th><th>busy</th><th>must wait</th><th>mean wait</th><th>within t</th><th>separate lines</th></tr></thead>
+          <tbody id="t-table"></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="pane">
+      <h3>Served within the target</h3>
+      <p class="caption">share waiting no longer than t, by number of servers · red: the target</p>
+      <div class="plot"><canvas id="cv-tills" role="img" aria-label="Share of customers served within the target wait, by number of servers, with the target level marked"></canvas></div>
+    </section>
+  </div>
+
+  <div class="prose">
+    <p>Two things in the table are general. First, the step from just enough servers to
+    one more is very large and the steps after it are small, so the right number is
+    usually one or two above the bare minimum <span class="tx">a</span> and rarely more.
+    Second, look at the last column. Splitting the same staff into separate lines, each
+    with its own share of the arrivals, always produces a longer wait than a single line
+    feeding all of them, because a separate line lets one server stand idle while
+    customers wait at another. That is the argument for the single snaking queue at a
+    post office, and for pooling anything that can be pooled.</p>
+  </div>
+
+  <hr>
+
+  <!-- ─────────────────────────────── 7 · variability ─────────────────────────────── -->
+  <section id="knee" class="prose">
+    <h2>The knee, and what variability costs</h2>
+    <p>Every formula so far has <span class="tx">1-\rho</span> on the bottom. That is the
+    most important practical fact about queues: waiting does not rise in proportion to
+    how busy the server is. It is nearly flat up to moderate loads, bends, and then climbs
+    steeply. Going from 80% busy to 90% doubles the wait and more; from 90% to 95% doubles
+    it again.</p>
+    <p>The other ingredient is how variable the service is. The exponential assumption can
+    be dropped for a single server. If service times have mean
+    <span class="tx">\mathbb{E}[S]</span> and coefficient of variation
+    <span class="tx">c_s</span> (standard deviation divided by mean), the
+    Pollaczek&ndash;Khinchine formula gives the mean wait in line for any service
+    distribution whatever:</p>
+    <div class="disp">W_q=\frac{\rho}{1-\rho}\cdot\frac{1+c_s^{2}}{2}\cdot\mathbb{E}[S]</div>
+    <p>The exponential has <span class="tx">c_s=1</span>, which makes the middle factor 1
+    and returns the M/M/1 result. A machine that takes exactly the same time over every
+    job has <span class="tx">c_s=0</span>, and halves the wait. Service that is mostly
+    quick with the occasional very long job has <span class="tx">c_s</span> above 1, and
+    the wait grows with its square. Only the mean and variance of the service time enter;
+    the shape beyond that does not matter to the mean wait.</p>
+  </section>
+
+  <dl class="readout">
+    <div><dt>Busy · ρ</dt><dd id="k-rho">–</dd></div>
+    <div><dt>Variability · c<sub>s</sub></dt><dd id="k-cv">–</dd></div>
+    <div><dt>Wait, formula</dt><dd id="k-th">–</dd></div>
+    <div><dt>Wait, simulated</dt><dd id="k-sim">–</dd></div>
+  </dl>
+
+  <div class="instrument" id="i-knee">
+    <section class="pane">
+      <h3>Wait against load</h3>
+      <p class="caption">mean wait in line, in service times · dashed: c<sub>s</sub> = 0 and 1 · ring: simulated</p>
+      <div class="plot"><canvas id="cv-knee" class="grab" role="img" aria-label="Mean wait in the queue against utilisation for three levels of service variability, with a simulated point"></canvas></div>
+    </section>
+    <section class="pane">
+      <h3>Set the load</h3>
+      <p class="caption">drag the chart or use the sliders</p>
+      <div class="sliders">
+        <label class="lbl" for="s-kr">ρ · busy</label><input type="range" id="s-kr" min="0.05" max="0.98" step="0.01" value="0.8"><output id="o-kr" for="s-kr"></output>
+        <label class="lbl" for="s-kc">c<sub>s</sub> · spread</label><input type="range" id="s-kc" min="0" max="2.5" step="0.05" value="1"><output id="o-kc" for="s-kc"></output>
+      </div>
+      <div class="row"><button class="btn" id="k-again" type="button">Simulate again</button></div>
+      <p class="score" id="k-out"></p>
+    </section>
+  </div>
+
+  <div class="prose">
+    <p>The ring is a simulation of 200,000 customers at the chosen settings. Press
+    <em>Simulate again</em> a few times at <span class="tx">\rho=0.5</span> and it barely
+    moves. Do the same at <span class="tx">\rho=0.95</span> and it jumps about, for the
+    reason given earlier: near saturation even 200,000 customers is a short sample.</p>
+    <p>Variability in the arrivals matters in the same way. For a single server with
+    arrivals that are not Poisson, Kingman&rsquo;s approximation replaces the middle factor
+    with <span class="tx">(c_a^{2}+c_s^{2})/2</span>, where <span class="tx">c_a</span>
+    is the coefficient of variation of the gaps between arrivals. Appointments, which make
+    arrivals regular, shorten queues for exactly this reason.</p>
+  </div>
+
+  <hr>
+
+  <!-- ─────────────────────────────── 8 · reckoner ─────────────────────────────── -->
+  <section id="reckoner" class="prose">
+    <h2>A ready reckoner</h2>
+    <p>The standard questions, in one place. Enter the figures for a queue and every
+    answer is worked from the formulas above. Times are in minutes and rates are per
+    minute, but any unit will do so long as it is the same throughout.</p>
+  </section>
+
+  <div class="fields">
+    <label>Arrivals per minute · λ<input type="number" id="k-lam" min="0.01" max="100" step="0.1" value="1"></label>
+    <label>Minutes per service · 1/μ<input type="number" id="k-s" min="0.01" max="100" step="0.05" value="0.8"></label>
+    <label>Servers · c<input type="number" id="k-c" min="1" max="50" step="1" value="1"></label>
+    <label>Time · t<input type="number" id="k-t" min="0" max="1000" step="0.5" value="5"></label>
+    <label>Count · k<input type="number" id="k-k" min="0" max="150" step="1" value="3"></label>
+  </div>
+
+  <div class="rk" id="rk"></div>
+
+  <hr>
+
+  <section class="prose">
+    <h2>Reading the page</h2>
+    <h3>The numbers</h3>
+    <p><span class="tx">\lambda</span> is the arrival rate in customers per minute and
+    <span class="tx">\mu</span> is the rate at which one busy server completes services,
+    so <span class="tx">1/\lambda</span> is the mean gap between arrivals and
+    <span class="tx">1/\mu</span> the mean service time. <span class="tx">c</span> is the
+    number of servers, <span class="tx">a=\lambda/\mu</span> the offered load and
+    <span class="tx">\rho=a/c</span> the utilisation, the long-run fraction of each
+    server&rsquo;s time spent serving. <span class="tx">N(t)</span> is the number of
+    arrivals in a window of length <span class="tx">t</span>, <span class="tx">T</span> a
+    single gap, and <span class="tx">S_n</span> the time of the
+    <span class="tx">n</span>th arrival. <span class="tx">L</span> is the mean number of
+    customers in the system and <span class="tx">W</span> the mean time one spends there,
+    both including service; <span class="tx">L_q</span> and <span class="tx">W_q</span> are
+    the same for the line alone. Wherever a readout shows a large figure with a smaller
+    one beneath it, the large one is measured from the simulation and the small one is the
+    formula. In the first panel <strong>None at all</strong> is the share of windows with
+    no arrivals, to be compared with <span class="tx">e^{-\lambda t}</span>. In the gaps
+    panel <strong>Longer than s</strong> is the share of gaps that outlasted
+    <span class="tx">s</span>, and <strong>Mean wait after s</strong> is the average
+    further wait among those. In the counter&rsquo;s table, averages of numbers present
+    are taken over time and averages of waits are taken over customers; <strong>Had to
+    wait</strong> is the share of customers who found every server busy. In the
+    variability panel waits are in multiples of the mean service time, so they can be read
+    for any service speed.</p>
+    <h3>The controls</h3>
+    <p>At <strong>the door</strong>, <em>Play</em> runs time forward, the two sliders set
+    the arrival rate and the window length, <em>+1,000 windows</em> skips ahead without
+    drawing, and <em>Reset</em> clears everything seen. Changing either slider also
+    clears it, since counts taken at one rate cannot be pooled with counts at another. The
+    <strong>gaps</strong> panel reads the same stream, so its rate slider is the same
+    control; <span class="tx">s</span> changes nothing about the stream, only which gaps
+    are picked out. In <strong>the nth arrival</strong> the three sliders, or a drag on
+    the left chart, set the formula&rsquo;s inputs directly; nothing there is simulated.
+    In <strong>splitting</strong>, <em>New half hour</em> draws a fresh thirty minutes;
+    in <strong>racing</strong> the sliders set the two rates and 20,000 races are run each
+    time they move. At <strong>the counter</strong>, the sliders set arrivals, service
+    rate per server and number of servers; <em>Speed</em> changes only the pace; changing
+    any rate keeps the customers who are present and restarts the averages;
+    <em>Empty and restart</em> clears the room as well. The <strong>staffing</strong>
+    and <strong>reckoner</strong> fields are plain inputs to the formulas. In
+    <strong>variability</strong>, the sliders or a drag on the chart set the load, and
+    <em>Simulate again</em> repeats the 200,000-customer run with fresh random numbers.</p>
+    <h3>What is idealised</h3>
+    <p>The arrival rate is constant. Real rates rise and fall through the day, and the
+    formulas then apply only within a period short enough for the rate to be steady and
+    long enough for the queue to settle, which at high loads may be no period at all.
+    Customers here are infinitely patient: nobody is put off by the length of the line,
+    nobody gives up, and the room never fills. Service is first come, first served, by
+    identical servers, with service times independent of each other and of the queue. The
+    exponential service time, with its most likely value at zero, is a poor description of
+    most real services, which is why the variability section matters; but the
+    Pollaczek&ndash;Khinchine formula covers one server only, and with several servers and
+    general service times there is no exact formula at all. Every equilibrium figure is a
+    long-run average, and says nothing about the first half hour after opening. The
+    simulations use a seeded pseudo-random generator, so a given sequence of button
+    presses replays identically. The variability simulation draws service times from a
+    gamma distribution with the chosen coefficient of variation, discards the first 5,000
+    customers and averages the rest. The counter&rsquo;s chart of states stops at 40;
+    time spent above that is added to the last bar.</p>
+
+    <p class="sources"><strong>Sources.</strong> A. K. Erlang, &lsquo;The theory of
+    probabilities and telephone conversations&rsquo;, <em>Nyt Tidsskrift for
+    Matematik</em> B 20, 1909, and &lsquo;Solution of some problems in the theory of
+    probabilities of significance in automatic telephone exchanges&rsquo;, 1917. D. G.
+    Kendall, &lsquo;Stochastic processes occurring in the theory of queues and their
+    analysis by the method of the imbedded Markov chain&rsquo;, <em>Annals of Mathematical
+    Statistics</em> 24(3), 1953, for the M/M/c notation. J. D. C. Little, &lsquo;A proof
+    for the queuing formula: L = λW&rsquo;, <em>Operations Research</em> 9(3), 1961.
+    J. F. C. Kingman, &lsquo;The single server queue in heavy traffic&rsquo;,
+    <em>Proceedings of the Cambridge Philosophical Society</em> 57(4), 1961. The
+    Pollaczek&ndash;Khinchine formula is due to F. Pollaczek (1930) and A. Y. Khinchine
+    (1932).</p>
+  </section>
+
+  <p class="note">Notes · Probability — queues, from the Poisson process to the Erlang C formula.</p>
+</main>
+
+<script src="https://cdn.jsdelivr.net/gh/nihilisticiconoclast/cuddly-lamp@main/assets/tunnel-figure.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script>
+(function () {
+  'use strict';
+  const TEX = String.raw;
+  const $ = id => document.getElementById(id);
+
+  /* ── the house logo and the per-page doodle ───────────────────────────── */
+  try {
+    if (window.TunnelFigure) {
+      $('sig').innerHTML = TunnelFigure.tunnelFigureSVG(null, { variant: 'mark' });
+      const seed = document.body.dataset.seed || location.pathname || document.title;
+      const dd = $('doodle');
+      dd.innerHTML = TunnelFigure.tunnelFigureSVG(seed, { variant: 'doodle' });
+      TunnelFigure.placeDoodle(dd);
+    }
+  } catch (e) { /* decoration only */ }
+
+  /* ── colours from tokens.css (canvas cannot read CSS variables) ───────── */
+  const cs = getComputedStyle(document.documentElement);
+  const tok = (n, fb) => (cs.getPropertyValue(n).trim() || fb);
+  const P = {
+    paper: tok('--paper', '#EDE7D3'), ink: tok('--ink', '#4A3823'), contour: tok('--contour', '#7A5C3E'),
+    index: tok('--index', '#5A4225'), teal: tok('--incident', '#3E7C8C'), amber: tok('--amber', '#E0922B'),
+    route: tok('--route', '#C0432B')
+  };
+  const HAIR = 'rgba(122,92,62,.3)', TEAL_F = 'rgba(62,124,140,.62)', TEAL_L = 'rgba(62,124,140,.22)';
+  const DATA = '500 11px "IBM Plex Mono", ui-monospace, monospace';
+  const DATA_S = '500 10px "IBM Plex Mono", ui-monospace, monospace';
+
+  /* ── formatting: TeX gets ASCII minus, HTML gets a real minus ─────────── */
+  function num(v, d) { if (Math.abs(v) < 0.5 * Math.pow(10, -d)) v = 0; return v.toFixed(d); }
+  const fh = (v, d = 2) => (isFinite(v) ? num(v, d).replace('-', '−') : '–');
+  const ft = (v, d = 2) => num(v, d);
+  const pc = (v, d = 1) => (isFinite(v) ? (100 * v).toFixed(d) + '%' : '–');
+  const big = n => Math.round(n).toLocaleString('en-GB');
+  const dur = v => (!isFinite(v) ? '–' : v < 1 ? (v * 60 < 10 ? (v * 60).toFixed(1) : Math.round(v * 60)) + ' s' : v.toFixed(2) + ' min');
+  const trimNum = v => String(+v.toFixed(4)).replace('-', '−');
+  function ro(id, main, sub) { $(id).innerHTML = main + (sub ? '<small>' + sub + '</small>' : ''); }
+
+  function K(el, tex, display) {
+    if (typeof el === 'string') el = $(el);
+    if (!el) return;
+    if (window.katex) {
+      try { katex.render(tex, el, { displayMode: display !== false, throwOnError: false }); return; } catch (e) { /* fall through */ }
+    }
+    el.textContent = tex;
+  }
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const expo = (r, rate) => -Math.log(1 - r()) / rate;
+  function normal(r) { return Math.sqrt(-2 * Math.log(1 - r())) * Math.cos(6.283185307179586 * r()); }
+  /* gamma variate with shape k and scale 1 (Marsaglia–Tsang) */
+  function gammaS(r, k) {
+    if (k < 1) return gammaS(r, k + 1) * Math.pow(1 - r(), 1 / k);
+    const d = k - 1 / 3, c = 1 / Math.sqrt(9 * d);
+    for (;;) {
+      let x, v;
+      do { x = normal(r); v = 1 + c * x; } while (v <= 0);
+      v = v * v * v;
+      const u = 1 - r();
+      if (u < 1 - 0.0331 * x * x * x * x) return d * v;
+      if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v;
+    }
+  }
+
+  /* ── the distributions ─────────────────────────────────────────────────── */
+  const LF = [0];
+  function lfact(n) { while (LF.length <= n) LF.push(LF[LF.length - 1] + Math.log(LF.length)); return LF[n]; }
+  function pois(k, m) { if (m <= 0) return k === 0 ? 1 : 0; return Math.exp(-m + k * Math.log(m) - lfact(k)); }
+  function poisCdf(k, m) { let s = 0; for (let j = 0; j <= k; j++) s += pois(j, m); return Math.min(1, s); }
+  const erlCdf = (n, lam, t) => (t <= 0 ? 0 : Math.max(0, 1 - poisCdf(n - 1, lam * t)));
+  function erlPdf(n, lam, t) {
+    if (t <= 0) return n === 1 ? lam : 0;
+    return Math.exp(n * Math.log(lam) + (n - 1) * Math.log(t) - lam * t - lfact(n - 1));
+  }
+  function erlQuantile(n, lam, p) {
+    let lo = 0, hi = (n + 10 * Math.sqrt(n) + 10) / lam;
+    for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2; if (erlCdf(n, lam, mid) < p) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  }
+  /* M/M/c in equilibrium */
+  function mmc(lam, mu, c) {
+    const a = lam / mu, rho = a / c, o = { a, rho, c, stable: rho < 1 };
+    if (!o.stable) return o;
+    let sum = 0, term = 1;
+    for (let k = 0; k < c; k++) { sum += term; term *= a / (k + 1); }
+    const tail = term / (1 - rho);
+    o.p0 = 1 / (sum + tail); o.C = tail * o.p0;
+    o.Lq = o.C * rho / (1 - rho); o.L = o.Lq + a; o.Wq = o.Lq / lam; o.W = o.Wq + 1 / mu;
+    o.pn = n => o.p0 * Math.exp(n < c ? n * Math.log(a) - lfact(n) : n * Math.log(a) - lfact(c) - (n - c) * Math.log(c));
+    o.tail = t => o.C * Math.exp(-(c * mu - lam) * t);
+    return o;
+  }
+
+  /* ── canvas helpers ────────────────────────────────────────────────────── */
+  function prep(cv) {
+    const d = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+    if (!W || !H) return null;
+    cv.width = Math.round(W * d); cv.height = Math.round(H * d);
+    const x = cv.getContext('2d'); x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, W, H); x.font = DATA;
+    return { x, W, H };
+  }
+  function niceStep(raw) {
+    const p = Math.pow(10, Math.floor(Math.log10(raw))), r = raw / p;
+    return (r <= 1 ? 1 : r <= 2 ? 2 : r <= 2.5 ? 2.5 : r <= 5 ? 5 : 10) * p;
+  }
+  function amberMix(alpha) {
+    const pcl = [237, 231, 211], ac = [224, 146, 43];
+    return 'rgb(' + [0, 1, 2].map(k => Math.round(pcl[k] + (ac[k] - pcl[k]) * alpha)).join(',') + ')';
+  }
+  function line(x, x0, y0, x1, y1, col, lw, dash) {
+    x.save(); x.beginPath(); x.moveTo(x0, y0); x.lineTo(x1, y1);
+    x.strokeStyle = col; x.lineWidth = lw || 1; if (dash) x.setLineDash(dash); x.stroke(); x.restore();
+  }
+  function text(x, s, X, Y, align, base, col, font) {
+    x.font = font || DATA_S; x.textAlign = align || 'left'; x.textBaseline = base || 'alphabetic';
+    x.fillStyle = col || P.contour; x.fillText(s, X, Y);
+  }
+  /* axes and gridlines; returns the data→pixel maps */
+  function frame(cv, o) {
+    const g = prep(cv); if (!g) return null;
+    const { x, W, H } = g, L = o.L == null ? 40 : o.L, R = 12, T = 16, B = 30;
+    const sx = v => L + (v - o.x0) / (o.x1 - o.x0) * (W - L - R);
+    const sy = v => H - B - (v - o.y0) / (o.y1 - o.y0) * (H - T - B);
+    const ys = niceStep((o.y1 - o.y0) / 4);
+    for (let v = Math.ceil(o.y0 / ys - 1e-9) * ys; v <= o.y1 + 1e-9; v += ys) {
+      const Y = Math.round(sy(v)) + 0.5;
+      line(x, L, Y, W - R, Y, HAIR);
+      text(x, o.ypc ? Math.round(v * 100) + '%' : trimNum(v), L - 6, Y, 'right', 'middle');
+    }
+    let xs = niceStep((o.x1 - o.x0) / (W < 420 ? 5 : 8)); if (o.xint) xs = Math.max(1, Math.ceil(xs));
+    for (let v = Math.ceil(o.x0 / xs - 1e-9) * xs; v <= o.x1 + 1e-9; v += xs) {
+      const X = Math.round(sx(v)) + 0.5;
+      line(x, X, H - B, X, H - B + 4, P.contour);
+      text(x, o.xpc ? Math.round(v * 100) + '%' : trimNum(v), X, H - B + 7, 'center', 'top');
+    }
+    line(x, L, H - B + 0.5, W - R, H - B + 0.5, P.index);
+    if (o.xl) text(x, o.xl, W - R, H - 3, 'right', 'bottom');
+    if (o.yl) text(x, o.yl, L + 4, 3, 'left', 'top');
+    return { x, W, H, sx, sy, L, R, T, B, ix: px => o.x0 + (px - L) / (W - L - R) * (o.x1 - o.x0) };
+  }
+  function curve(f, fn, x0, x1, col, lw, dash, ycap) {
+    const x = f.x; x.save(); x.beginPath(); let on = false;
+    for (let i = 0; i <= 240; i++) {
+      const v = x0 + (x1 - x0) * i / 240, y = fn(v);
+      if (!isFinite(y) || (ycap != null && y > ycap)) { on = false; continue; }
+      if (on) x.lineTo(f.sx(v), f.sy(y)); else { x.moveTo(f.sx(v), f.sy(y)); on = true; }
+    }
+    x.strokeStyle = col; x.lineWidth = lw || 1.6; if (dash) x.setLineDash(dash); x.lineJoin = 'round'; x.stroke(); x.restore();
+  }
+  /* pointer drag on a canvas, reporting the x pixel */
+  function dragX(cv, fn) {
+    let down = false;
+    const at = e => { const r = cv.getBoundingClientRect(); fn(e.clientX - r.left); };
+    cv.addEventListener('pointerdown', e => { down = true; try { cv.setPointerCapture(e.pointerId); } catch (_) {} at(e); });
+    cv.addEventListener('pointermove', e => { if (down) at(e); });
+    ['pointerup', 'pointercancel'].forEach(n => cv.addEventListener(n, () => { down = false; }));
+  }
+  function playBtn(btn, on) { btn.setAttribute('aria-pressed', on ? 'true' : 'false'); btn.textContent = on ? 'Pause' : 'Play'; }
+
+  /* ════════════════════════ 1 & 2 · the door and its gaps ════════════════════════ */
+  const D = { lam: 1, win: 5, play: false, seed: 1, s: 1 };
+  const GAP_CAP = 200000;
+  function doorReset() {
+    D.rng = mulberry32(0xD00D + D.seed++);
+    D.t = 0; D.next = expo(D.rng, D.lam); D.last = 0;
+    D.arr = []; D.wins = []; D.cur = 0; D.wEnd = D.win;
+    D.hist = []; D.nWin = 0; D.sumC = 0; D.sumC2 = 0; D.gaps = [];
+  }
+  function doorAdvance(to) {
+    for (;;) {
+      if (Math.min(D.next, D.wEnd) > to) break;
+      if (D.next <= D.wEnd) {
+        if (D.gaps.length < GAP_CAP) D.gaps.push(D.next - D.last);
+        D.last = D.next; D.arr.push({ t: D.next, y: D.rng() }); D.cur++;
+        D.next += expo(D.rng, D.lam);
+      } else {
+        D.wins.push({ end: D.wEnd, c: D.cur });
+        D.hist[D.cur] = (D.hist[D.cur] || 0) + 1; D.nWin++; D.sumC += D.cur; D.sumC2 += D.cur * D.cur;
+        D.cur = 0; D.wEnd += D.win;
+      }
+    }
+    D.t = to;
+    const cut = to - 7 * D.win; let i = 0;
+    while (i < D.arr.length && D.arr[i].t < cut) i++;
+    if (i) D.arr.splice(0, i);
+    if (D.wins.length > 8) D.wins.splice(0, D.wins.length - 8);
+  }
+  function drawStrip() {
+    const g = prep($('cv-strip')); if (!g) return;
+    const { x, W, H } = g, span = 6 * D.win, t1 = D.t, t0 = t1 - span, xr = W - 16;
+    const sx = t => (t - t0) / span * xr, top = 26, bot = H - 20;
+    for (let b = Math.ceil(t0 / D.win - 1e-9) * D.win; b <= t1 + 1e-9; b += D.win) {
+      if (b < 0) continue;
+      const X = Math.round(sx(b)) + 0.5; line(x, X, top - 6, X, bot, HAIR);
+    }
+    D.wins.forEach(w => {
+      const X = sx(w.end - D.win / 2); if (X < 8) return;
+      text(x, String(w.c), X, 15, 'center', 'alphabetic', P.ink, '600 13px "IBM Plex Mono", ui-monospace, monospace');
+    });
+    const curMid = sx((D.wEnd - D.win + t1) / 2);
+    text(x, String(D.cur), Math.min(curMid, xr - 8), 15, 'center', 'alphabetic', P.contour, DATA);
+    x.fillStyle = P.teal;
+    D.arr.forEach(a => { const X = sx(a.t); if (X < -3) return; x.beginPath(); x.arc(X, top + 6 + a.y * (bot - top - 12), 2.6, 0, 7); x.fill(); });
+    line(x, L05(xr), top - 12, L05(xr), bot, P.route, 1.5);
+    text(x, 'now', xr - 4, H - 6, 'right', 'alphabetic', P.route);
+    text(x, 'each window ' + trimNum(D.win) + ' min', 4, H - 6, 'left', 'alphabetic');
+    line(x, 0, bot + 0.5, xr, bot + 0.5, P.index);
+  }
+  function L05(v) { return Math.round(v) + 0.5; }
+  function drawPois() {
+    const m = D.lam * D.win, Kmax = Math.max(8, Math.ceil(m + 4 * Math.sqrt(m) + 1));
+    const th = [], ob = []; let ymax = 0;
+    for (let k = 0; k <= Kmax; k++) {
+      th.push(pois(k, m)); ob.push(D.nWin ? (D.hist[k] || 0) / D.nWin : 0);
+      ymax = Math.max(ymax, th[k], ob[k]);
+    }
+    const f = frame($('cv-pois'), { x0: -0.7, x1: Kmax + 0.7, y0: 0, y1: ymax * 1.15, xint: true, ypc: true, xl: 'arrivals in one window', yl: 'share of windows' });
+    if (!f) return;
+    const bw = (f.sx(1) - f.sx(0)) * 0.72, x = f.x;
+    for (let k = 0; k <= Kmax; k++) {
+      const X = f.sx(k), y0 = f.sy(0);
+      x.fillStyle = TEAL_F; x.fillRect(X - bw / 2, f.sy(ob[k]), bw, y0 - f.sy(ob[k]));
+      line(x, X - bw / 2 - 2, f.sy(th[k]), X + bw / 2 + 2, f.sy(th[k]), P.ink, 2);
+    }
+  }
+  function drawGaps() {
+    const lam = D.lam, x1 = 5 / lam, nb = 30, bw = x1 / nb, s = D.s / lam, gs = D.gaps, n = gs.length;
+    const h = new Float64Array(nb), hc = new Float64Array(nb);
+    let nc = 0, rem = 0, sum = 0, sum2 = 0;
+    for (let i = 0; i < n; i++) {
+      const g = gs[i]; sum += g; sum2 += g * g;
+      let b = Math.floor(g / bw); if (b < nb) h[b]++;
+      if (g > s) { nc++; rem += g - s; b = Math.floor((g - s) / bw); if (b < nb) hc[b]++; }
+    }
+    let ymax = lam * 1.15;
+    if (n > 200) for (let b = 0; b < nb; b++) ymax = Math.max(ymax, h[b] / (n * bw) * 1.05);
+    const f = frame($('cv-gaps'), { x0: 0, x1, y0: 0, y1: ymax, xl: 'gap, minutes', yl: 'density' });
+    if (f) {
+      const x = f.x;
+      if (n) for (let b = 0; b < nb; b++) {
+        const d = h[b] / (n * bw), X0 = f.sx(b * bw), X1 = f.sx((b + 1) * bw);
+        x.fillStyle = TEAL_F; x.fillRect(X0 + 0.5, f.sy(d), X1 - X0 - 1, f.sy(0) - f.sy(d));
+      }
+      curve(f, t => lam * Math.exp(-lam * t), 0, x1, P.ink, 1.8);
+      if (s > 0) { line(x, L05(f.sx(s)), f.T, L05(f.sx(s)), f.sy(0), P.ink, 1, [3, 3]); text(x, 's', f.sx(s) + 4, f.T + 8, 'left', 'middle', P.ink, DATA); }
+      if (nc >= 30) {
+        x.save(); x.beginPath(); x.strokeStyle = P.route; x.lineWidth = 1.6; x.lineJoin = 'miter';
+        for (let b = 0; b < nb; b++) {
+          const Y = Math.max(f.T - 4, f.sy(hc[b] / (nc * bw)));
+          if (b === 0) x.moveTo(f.sx(0), Y); else x.lineTo(f.sx(b * bw), Y);
+          x.lineTo(f.sx((b + 1) * bw), Y);
+        }
+        x.stroke(); x.restore();
+      }
+    }
+    ro('g-n', big(n));
+    ro('g-mean', n ? dur(sum / n) : '–', 'formula ' + dur(1 / lam));
+    ro('g-surv', n ? pc(nc / n) : '–', 'formula ' + pc(Math.exp(-D.s)));
+    ro('g-rem', nc ? dur(rem / nc) : '–', 'formula ' + dur(1 / lam));
+    $('g-bus').innerHTML = n > 1
+      ? 'Arrive at a random moment and the gap you land in averages <b>' + dur(sum2 / sum) + '</b> (formula 2/λ = ' + dur(2 / lam) +
+        '). Your wait for the next arrival averages <b>' + dur(sum2 / (2 * sum)) + '</b> (formula 1/λ = ' + dur(1 / lam) + ').'
+      : 'No gaps seen yet.';
+  }
+  function doorReadout() {
+    const m = D.lam * D.win, n = D.nWin, mean = n ? D.sumC / n : NaN;
+    ro('d-n', big(n));
+    ro('d-mean', n ? fh(mean) : '–', 'formula λt = ' + fh(m));
+    ro('d-var', n > 1 ? fh((D.sumC2 - n * mean * mean) / (n - 1)) : '–', 'formula λt = ' + fh(m));
+    ro('d-zero', n ? pc((D.hist[0] || 0) / n) : '–', 'formula ' + pc(Math.exp(-m)));
+  }
+  function doorLabels() {
+    const l = fh(D.lam, 1) + ' per min';
+    $('o-lam').textContent = l; $('o-lam2').textContent = l;
+    $('o-win').textContent = fh(D.win, 1) + ' min';
+    $('o-s').textContent = dur(D.s / D.lam);
+    $('s-lam').value = D.lam; $('s-lam2').value = D.lam;
+  }
+  function drawDoor() { drawStrip(); drawPois(); doorReadout(); if (vis.gaps) drawGaps(); }
+  function doorRestart() { doorReset(); doorAdvance(6 * D.win); doorLabels(); drawDoor(); drawGaps(); }
+
+  /* ════════════════════════ 3 · the nth arrival ════════════════════════ */
+  const N3 = { n: 10, lam: 1, frac: 0.4, ix: null };
+  const n3x1 = () => (N3.n + 4 * Math.sqrt(N3.n) + 2) / N3.lam;
+  function drawNth() {
+    const n = N3.n, lam = N3.lam, x1 = n3x1(), t = N3.frac * x1, m = lam * t;
+    const p = erlCdf(n, lam, t), mean = n / lam, sd = Math.sqrt(n) / lam;
+    const peak = n === 1 ? lam : erlPdf(n, lam, (n - 1) / lam);
+    const f = frame($('cv-erl'), { x0: 0, x1, y0: 0, y1: peak * 1.15, xl: 'time of the nth arrival, minutes', yl: 'density' });
+    if (f) {
+      const x = f.x; N3.ix = f.ix;
+      x.beginPath(); x.moveTo(f.sx(0), f.sy(0));
+      for (let i = 0; i <= 160; i++) { const v = t * i / 160; x.lineTo(f.sx(v), f.sy(erlPdf(n, lam, v))); }
+      x.lineTo(f.sx(t), f.sy(0)); x.closePath(); x.fillStyle = TEAL_F; x.fill();
+      curve(f, v => erlPdf(n, lam, v), 0, x1, P.ink, 1.8);
+      line(x, L05(f.sx(t)), f.T, L05(f.sx(t)), f.sy(0), P.route, 1.5);
+      const right = f.sx(t) < f.W - 90;
+      text(x, 't = ' + fh(t), f.sx(t) + (right ? 5 : -5), f.T + 8, right ? 'left' : 'right', 'middle', P.route, DATA);
+    }
+    const Kmax = Math.max(n + 3, Math.ceil(m + 4 * Math.sqrt(m) + 2));
+    let ymax = 0; for (let k = 0; k <= Kmax; k++) ymax = Math.max(ymax, pois(k, m));
+    const f2 = frame($('cv-dual'), { x0: -0.7, x1: Kmax + 0.7, y0: 0, y1: Math.min(1.05, ymax * 1.15), xint: true, ypc: true, xl: 'arrivals by time t', yl: 'probability' });
+    if (f2) {
+      const x = f2.x, bw = Math.max(1.5, (f2.sx(1) - f2.sx(0)) * 0.72);
+      for (let k = 0; k <= Kmax; k++) {
+        const X = f2.sx(k), Y = f2.sy(pois(k, m)), hgt = f2.sy(0) - Y;
+        if (k >= n) { x.fillStyle = TEAL_F; x.fillRect(X - bw / 2, Y, bw, hgt); }
+        else { x.fillStyle = TEAL_L; x.fillRect(X - bw / 2, Y, bw, hgt); }
+      }
+      const Xn = L05(f2.sx(n - 0.5)); line(x, Xn, f2.T, Xn, f2.sy(0), P.ink, 1, [3, 3]);
+      text(x, 'n = ' + n, Xn + 5, f2.T + 8, 'left', 'middle', P.ink, DATA);
+    }
+    ro('n-mean', dur(mean)); ro('n-sd', dur(sd)); ro('n-p', pc(p));
+    ro('n-q', dur(erlQuantile(n, lam, 0.9)));
+    $('o-n').textContent = n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
+    $('o-lam3').textContent = fh(lam, 1) + ' per min'; $('o-t3').textContent = fh(t) + ' min';
+    K('e-n1', TEX`\mathbb{E}[S_{${n}}]=\frac{n}{\lambda}=\frac{${n}}{${ft(lam, 1)}}=\mathbf{${ft(mean)}}\ \text{min}`);
+    K('e-n2', TEX`P(S_{${n}}\le ${ft(t)})=P\bigl(N(${ft(t)})\ge ${n}\bigr)=\mathbf{${ft(p, 3)}}`);
+  }
+
+  /* ════════════════════════ 4 · splitting and racing ════════════════════════ */
+  const S4 = { lam: 1.5, p: 0.6, seed: 3, pts: [], a: 1.5, b: 1, T: 30 };
+  function lanesSample() {
+    const r = mulberry32(0x5EED + S4.seed); S4.pts = [];
+    let t = expo(r, S4.lam);
+    while (t < S4.T) { S4.pts.push({ t, u: r() }); t += expo(r, S4.lam); }
+  }
+  function drawLanes() {
+    const g = prep($('cv-lanes')); if (!g) return;
+    const { x, W, H } = g, L = 10, R = 10, sx = t => L + t / S4.T * (W - L - R);
+    const ys = [H * 0.27, H * 0.55, H * 0.83];
+    const names = ['all arrivals · λ = ' + fh(S4.lam, 1), 'coffee · pλ = ' + fh(S4.p * S4.lam), 'the rest · (1 − p)λ = ' + fh((1 - S4.p) * S4.lam)];
+    ys.forEach((Y, i) => { line(x, L, L05(Y), W - R, L05(Y), HAIR); text(x, names[i], L, Y - 13, 'left', 'alphabetic'); });
+    for (let m = 0; m <= S4.T; m += 5) line(x, L05(sx(m)), H - 18, L05(sx(m)), H - 14, P.contour);
+    text(x, '0', L, H - 3, 'left', 'bottom'); text(x, S4.T + ' min', W - R, H - 3, 'right', 'bottom');
+    let nA = 0;
+    S4.pts.forEach(pt => {
+      const X = sx(pt.t), coffee = pt.u < S4.p; if (coffee) nA++;
+      line(x, X, ys[0] - 6, X, ys[0] + 6, P.ink, 1.4);
+      x.beginPath(); x.arc(X, coffee ? ys[1] : ys[2], 3, 0, 7);
+      if (coffee) { x.fillStyle = P.teal; x.fill(); } else { x.fillStyle = P.paper; x.fill(); x.strokeStyle = P.contour; x.lineWidth = 1.4; x.stroke(); }
+    });
+    const n = S4.pts.length, e = S4.lam * S4.T;
+    $('l-out').innerHTML = '<b>' + n + '</b> arrivals (expected ' + fh(e, 1) + ') · <b>' + nA + '</b> coffees (expected ' + fh(S4.p * e, 1) +
+      ') · <b>' + (n - nA) + '</b> others (expected ' + fh((1 - S4.p) * e, 1) + ')';
+    $('o-lam4').textContent = fh(S4.lam, 1) + ' per min'; $('o-p').textContent = pc(S4.p, 0);
+  }
+  function race() {
+    const a = S4.a, b = S4.b, r = mulberry32(0xACE), N = 20000; let win = 0, sum = 0;
+    for (let i = 0; i < N; i++) { const ta = expo(r, a), tb = expo(r, b); if (ta < tb) win++; sum += Math.min(ta, tb); }
+    $('o-ra').textContent = fh(a, 1) + ' per min'; $('o-rb').textContent = fh(b, 1) + ' per min';
+    K('e-r1', TEX`P(A\text{ first})=\frac{\mu_A}{\mu_A+\mu_B}=\frac{${ft(a, 1)}}{${ft(a + b, 1)}}=\mathbf{${ft(a / (a + b), 3)}}`);
+    K('e-r2', TEX`\mathbb{E}[\min(T_A,T_B)]=\frac{1}{\mu_A+\mu_B}=\frac{1}{${ft(a + b, 1)}}=\mathbf{${ft(1 / (a + b), 3)}}\ \text{min}`);
+    $('r-out').innerHTML = 'In 20,000 simulated races A finished first in <b>' + pc(win / N) + '</b>, and the first drink was ready after <b>' +
+      dur(sum / N) + '</b> on average.';
+  }
+
+  /* ════════════════════════ 5 · the counter (M/M/c, simulated) ════════════════════════ */
+  const Q = { lam: 1, mu: 1.25, c: 1, speed: 10, play: false, seed: 1, MAXC: 6 };
+  const qLen = () => Q.q.length - Q.qh;
+  function qBusy() { let b = 0; for (let i = 0; i < Q.c; i++) if (Q.srv[i]) b++; return b; }
+  function qStats0() {
+    Q.t0 = Q.t; Q.aN = 0; Q.aQ = 0; Q.aB = 0; Q.st = new Float64Array(41);
+    Q.nStart = 0; Q.sWq = 0; Q.nWaited = 0; Q.nDone = 0; Q.sW = 0;
+  }
+  function qReset() {
+    Q.rng = mulberry32(0xC0FFEE + Q.seed++); Q.t = 0; Q.srv = [];
+    for (let i = 0; i < Q.MAXC; i++) Q.srv.push(null);
+    Q.q = []; Q.qh = 0; Q.hist = [[0, 0]]; Q.next = expo(Q.rng, Q.lam); qStats0();
+  }
+  function qAcc(t) {
+    const dt = t - Q.t; if (dt <= 0) { Q.t = Math.max(Q.t, t); return; }
+    const b = qBusy(), q = qLen();
+    Q.aN += (b + q) * dt; Q.aQ += q * dt; Q.aB += b * dt; Q.st[Math.min(40, b + q)] += dt; Q.t = t;
+  }
+  function qAdvance(to) {
+    let guard = 0;
+    while (guard++ < 400000) {
+      let te = Q.next, kind = -1;
+      for (let i = 0; i < Q.c; i++) if (Q.srv[i] && Q.srv[i].end < te) { te = Q.srv[i].end; kind = i; }
+      if (te > to) break;
+      qAcc(te);
+      if (kind < 0) {
+        let free = -1; for (let i = 0; i < Q.c; i++) if (!Q.srv[i]) { free = i; break; }
+        if (free >= 0) { Q.srv[free] = { arr: te, end: te + expo(Q.rng, Q.mu) }; Q.nStart++; }
+        else Q.q.push(te);
+        Q.next = te + expo(Q.rng, Q.lam);
+      } else {
+        Q.nDone++; Q.sW += te - Q.srv[kind].arr;
+        if (qLen() > 0) {
+          const a = Q.q[Q.qh++]; Q.srv[kind] = { arr: a, end: te + expo(Q.rng, Q.mu) };
+          Q.nStart++; Q.nWaited++; Q.sWq += te - a;
+        } else Q.srv[kind] = null;
+      }
+      Q.hist.push([te, qBusy() + qLen()]);
+    }
+    if (guard < 400000) qAcc(to);
+    if (Q.qh > 4096 && Q.qh > Q.q.length / 2) { Q.q = Q.q.slice(Q.qh); Q.qh = 0; }
+    if (Q.hist.length > 40000) Q.hist = Q.hist.slice(-20000);
+  }
+  function qSetC(c) {
+    for (let i = c; i < Q.MAXC; i++) if (Q.srv[i]) { Q.q.splice(Q.qh, 0, Q.srv[i].arr); Q.srv[i] = null; }
+    Q.c = c;
+    for (let i = 0; i < c; i++) if (!Q.srv[i] && qLen() > 0) { Q.srv[i] = { arr: Q.q[Q.qh++], end: Q.t + expo(Q.rng, Q.mu) }; }
+    Q.hist.push([Q.t, qBusy() + qLen()]); qStats0();
+  }
+  function qSetMu(mu) { Q.mu = mu; for (let i = 0; i < Q.c; i++) if (Q.srv[i]) Q.srv[i].end = Q.t + expo(Q.rng, mu); qStats0(); }
+  function qSetLam(lam) { Q.lam = lam; Q.next = Q.t + expo(Q.rng, lam); qStats0(); }
+
+  function drawCounter() {
+    const g = prep($('cv-counter')); if (!g) return;
+    const { x, W, H } = g, ph = Math.round(H * 0.5), c = Q.c, th = mmc(Q.lam, Q.mu, c);
+    /* servers */
+    const ss = Math.max(8, Math.min(20, Math.floor((ph - 30) / c) - 5)), sxr = W - 14 - ss;
+    for (let i = 0; i < c; i++) {
+      const Y = 10 + i * (ss + 5);
+      x.strokeStyle = P.index; x.lineWidth = 1.2; x.strokeRect(sxr + 0.5, Y + 0.5, ss, ss);
+      if (Q.srv[i]) { x.beginPath(); x.arc(sxr + ss / 2 + 0.5, Y + ss / 2 + 0.5, ss * 0.3, 0, 7); x.fillStyle = P.teal; x.fill(); }
+    }
+    /* the line */
+    const r = 4.5, sp = 12, cols = Math.max(1, Math.floor((sxr - 20) / sp)), rows = Math.max(1, Math.floor((ph - 34) / sp));
+    const n = qLen(), show = Math.min(n, cols * rows), scale = 6 / Q.mu;
+    for (let j = 0; j < show; j++) {
+      const row = Math.floor(j / cols), col = j % cols, k = row % 2 ? cols - 1 - col : col;
+      const X = sxr - 12 - k * sp, Y = 10 + r + 1 + row * sp, wait = Q.t - Q.q[Q.qh + j];
+      x.beginPath(); x.arc(X, Y, r, 0, 7); x.fillStyle = amberMix(Math.min(1, wait / scale)); x.fill();
+      x.strokeStyle = P.contour; x.lineWidth = 1; x.stroke();
+    }
+    text(x, 'in line ' + big(n) + (n > show ? ' (' + big(n - show) + ' not drawn)' : ''), 8, ph - 8, 'left', 'alphabetic', P.ink, DATA);
+    text(x, 'serving ' + qBusy() + ' of ' + c, W - 12, ph - 8, 'right', 'alphabetic', P.ink, DATA);
+    line(x, 0, ph + 0.5, W, ph + 0.5, HAIR);
+    /* number in the system over time */
+    const span = 45 * Q.speed, t1 = Q.t, t0 = t1 - span, L = 30, R = 12, top = ph + 20, bot = H - 20;
+    const hs = Q.hist; let i0 = hs.length - 1; while (i0 > 0 && hs[i0][0] > t0) i0--;
+    let ymax = 6; for (let i = i0; i < hs.length; i++) ymax = Math.max(ymax, hs[i][1]);
+    if (th.stable) ymax = Math.max(ymax, Math.ceil(th.L * 1.3));
+    const sx = t => L + (t - t0) / span * (W - L - R), sy = v => bot - v / ymax * (bot - top);
+    line(x, L, L05(top), W - R, L05(top), HAIR); line(x, L, bot + 0.5, W - R, bot + 0.5, P.index);
+    text(x, String(ymax), L - 5, top, 'right', 'middle'); text(x, '0', L - 5, bot, 'right', 'middle');
+    text(x, 'in the system · last ' + big(span) + ' min', L + 2, ph + 12, 'left', 'alphabetic');
+    x.save(); x.beginPath(); x.rect(L, top - 2, W - L - R, bot - top + 4); x.clip();
+    x.beginPath(); x.moveTo(sx(Math.max(t0, hs[i0][0])), sy(hs[i0][1]));
+    for (let i = i0 + 1; i < hs.length; i++) { x.lineTo(sx(hs[i][0]), sy(hs[i - 1][1])); x.lineTo(sx(hs[i][0]), sy(hs[i][1])); }
+    x.lineTo(sx(t1), sy(hs[hs.length - 1][1]));
+    x.strokeStyle = P.teal; x.lineWidth = 1.4; x.lineJoin = 'round'; x.stroke(); x.restore();
+    if (th.stable) {
+      line(x, L, L05(sy(th.L)), W - R, L05(sy(th.L)), P.ink, 1, [4, 3]);
+      text(x, 'L = ' + fh(th.L), L + 4, sy(th.L) - 4, 'left', 'alphabetic', P.ink);
+    }
+  }
+  function drawStates() {
+    const th = mmc(Q.lam, Q.mu, Q.c), T = Q.t - Q.t0;
+    let Kmax = 40;
+    if (th.stable) { let acc = 0; Kmax = 0; while (Kmax < 40 && acc < 0.985) { acc += th.pn(Kmax); Kmax++; } Kmax = Math.max(8, Kmax); }
+    let ymax = 0.05;
+    for (let k = 0; k <= Kmax; k++) ymax = Math.max(ymax, T > 0 ? Q.st[k] / T : 0, th.stable ? th.pn(k) : 0);
+    const f = frame($('cv-states'), { x0: -0.7, x1: Kmax + 0.7, y0: 0, y1: Math.min(1.05, ymax * 1.15), xint: true, ypc: true, xl: 'customers in the system', yl: 'share of time' });
+    if (!f) return;
+    const x = f.x, bw = Math.max(1.5, (f.sx(1) - f.sx(0)) * 0.72);
+    for (let k = 0; k <= Kmax; k++) {
+      const X = f.sx(k), o = T > 0 ? Q.st[k] / T : 0;
+      x.fillStyle = TEAL_F; x.fillRect(X - bw / 2, f.sy(o), bw, f.sy(0) - f.sy(o));
+      if (th.stable) line(x, X - bw / 2 - 2, f.sy(th.pn(k)), X + bw / 2 + 2, f.sy(th.pn(k)), P.ink, 2);
+    }
+    if (!th.stable) text(x, 'no equilibrium: arrivals outrun service', f.W - f.R - 4, f.T + 10, 'right', 'middle', P.ink, DATA);
+  }
+  function qReadout() {
+    const th = mmc(Q.lam, Q.mu, Q.c), T = Q.t - Q.t0, s = th.stable, none = 'no limit';
+    const simWq = Q.nStart ? Q.sWq / Q.nStart : NaN;
+    ro('q-rho', T > 0 ? pc(Q.aB / (Q.c * T), 0) : '–', 'formula ' + (s ? pc(th.rho, 0) : 'over 100%'));
+    ro('q-now', big(qBusy() + qLen()), big(qLen()) + ' in line');
+    ro('q-wq', dur(simWq), 'formula ' + (s ? dur(th.Wq) : none));
+    ro('q-served', big(Q.nDone), 'in ' + big(T) + ' min');
+    const rows = [
+      ['Servers busy · ρ', T > 0 ? pc(Q.aB / (Q.c * T)) : '–', s ? pc(th.rho) : '100%'],
+      ['In the system · L', T > 0 ? fh(Q.aN / T) : '–', s ? fh(th.L) : none],
+      ['In line · L_q', T > 0 ? fh(Q.aQ / T) : '–', s ? fh(th.Lq) : none],
+      ['Time in system · W', Q.nDone ? dur(Q.sW / Q.nDone) : '–', s ? dur(th.W) : none],
+      ['Wait in line · W_q', dur(simWq), s ? dur(th.Wq) : none],
+      ['Had to wait', Q.nStart ? pc(Q.nWaited / Q.nStart) : '–', s ? pc(th.C) : '100%']
+    ];
+    $('q-table').innerHTML = rows.map(r => '<tr><td>' + r[0].replace('_q', '<sub>q</sub>') + '</td><td>' + r[1] + '</td><td class="dim">' + r[2] + '</td></tr>').join('');
+  }
+  function qLabels() {
+    $('o-ql').textContent = fh(Q.lam) + ' per min';
+    $('o-qm').textContent = fh(Q.mu) + ' · ' + dur(1 / Q.mu);
+    $('o-qc').textContent = String(Q.c);
+  }
+  let qLastRO = 0;
+  function drawQueue(force) {
+    drawCounter();
+    const now = performance.now();
+    if (force || now - qLastRO > 200) { qLastRO = now; drawStates(); qReadout(); }
+  }
+
+  /* ════════════════════════ 6 · staffing (Erlang C) ════════════════════════ */
+  function val(id, lo, hi, fb) { const v = parseFloat($(id).value); return isFinite(v) && v >= lo && v <= hi ? v : fb; }
+  function tills() {
+    const lam = val('t-lam', 0.1, 60, 4), sv = val('t-s', 0.05, 30, 1), t = val('t-t', 0, 30, 1), sl = val('t-sl', 1, 99.9, 90) / 100;
+    const mu = 1 / sv, a = lam * sv, c0 = Math.floor(a + 1e-9) + 1;
+    let pick = c0; while (pick < c0 + 400 && 1 - mmc(lam, mu, pick).tail(t) < sl) pick++;
+    const from = pick > c0 + 4 ? pick - 4 : c0, rows = [];
+    for (let c = from; c < from + 8; c++) {
+      const m = mmc(lam, mu, c), rho = a / c;
+      rows.push({ c, rho, C: m.C, Wq: m.Wq, within: 1 - m.tail(t), sep: rho / (mu - lam / c) });
+    }
+    $('t-head').textContent = 'You need ' + pick + (pick === 1 ? ' server' : ' servers');
+    $('t-table').innerHTML = rows.map(r => '<tr' + (r.c === pick ? ' class="pick"' : '') + '><td>' + r.c + '</td><td>' + pc(r.rho, 0) + '</td><td>' +
+      pc(r.C) + '</td><td>' + dur(r.Wq) + '</td><td>' + pc(r.within) + '</td><td class="dim">' + dur(r.sep) + '</td></tr>').join('');
+    const f = frame($('cv-tills'), { x0: from - 0.7, x1: from + 7.7, y0: 0, y1: 1.05, xint: true, ypc: true, xl: 'servers', yl: 'waiting no longer than ' + dur(t) });
+    if (!f) return;
+    const x = f.x, bw = (f.sx(1) - f.sx(0)) * 0.6;
+    rows.forEach(r => {
+      const X = f.sx(r.c), Y = f.sy(r.within);
+      x.fillStyle = r.c === pick ? P.teal : TEAL_L; x.fillRect(X - bw / 2, Y, bw, f.sy(0) - Y);
+      text(x, Math.round(r.within * 100) + '', X, Y - 4, 'center', 'alphabetic', P.ink);
+    });
+    line(x, f.L, L05(f.sy(sl)), f.W - f.R, L05(f.sy(sl)), P.route, 1.5, [5, 3]);
+  }
+
+  /* ════════════════════════ 7 · the knee (M/G/1) ════════════════════════ */
+  const KN = { rho: 0.8, cv: 1, seed: 1, sim: NaN, ix: null };
+  const pk = (rho, cv) => rho / (1 - rho) * (1 + cv * cv) / 2;
+  function kneeSim() {
+    const r = mulberry32(0xBEEF + KN.seed * 7919), k = KN.cv > 0 ? 1 / (KN.cv * KN.cv) : 0, N = 205000;
+    let W = 0, sum = 0, n = 0;
+    for (let i = 0; i < N; i++) {
+      if (i >= 5000) { sum += W; n++; }
+      const S = k ? gammaS(r, k) / k : 1;
+      W = Math.max(0, W + S - expo(r, KN.rho));
+    }
+    KN.sim = sum / n;
+  }
+  function drawKnee() {
+    const w = pk(KN.rho, KN.cv), y1 = Math.max(12, Math.ceil(Math.max(w, isFinite(KN.sim) ? KN.sim : 0) * 1.25));
+    const f = frame($('cv-knee'), { x0: 0, x1: 1, y0: 0, y1, xpc: true, xl: 'share of time the server is busy', yl: 'service times spent in line' });
+    if (f) {
+      const x = f.x; KN.ix = f.ix;
+      curve(f, v => pk(v, 0), 0, 0.998, P.contour, 1.2, [4, 3], y1);
+      curve(f, v => pk(v, 1), 0, 0.998, P.ink, 1.2, [4, 3], y1);
+      curve(f, v => pk(v, KN.cv), 0, 0.998, P.teal, 2.2, null, y1);
+      const X = f.sx(KN.rho);
+      line(x, L05(X), f.T, L05(X), f.sy(0), P.route, 1.5);
+      x.beginPath(); x.arc(X, f.sy(w), 4.5, 0, 7); x.fillStyle = P.teal; x.fill();
+      if (isFinite(KN.sim)) { x.beginPath(); x.arc(X, f.sy(Math.min(y1, KN.sim)), 8, 0, 7); x.strokeStyle = P.ink; x.lineWidth = 1.5; x.stroke(); }
+    }
+    ro('k-rho', pc(KN.rho, 0)); ro('k-cv', fh(KN.cv));
+    ro('k-th', fh(w), 'service times'); ro('k-sim', fh(KN.sim), 'service times');
+    $('o-kr').textContent = pc(KN.rho, 0);
+    $('o-kc').textContent = fh(KN.cv);
+    $('k-out').innerHTML = 'On average <b>' + fh(KN.rho * w) + '</b> customers stand in line. With perfectly regular service it would be <b>' +
+      fh(KN.rho * pk(KN.rho, 0)) + '</b>, and with exponential service <b>' + fh(KN.rho * pk(KN.rho, 1)) + '</b>.';
+  }
+  let kneePending = false;
+  function kneeUpdate() {
+    if (kneePending) return; kneePending = true;
+    requestAnimationFrame(() => { kneePending = false; kneeSim(); drawKnee(); });
+  }
+
+  /* ════════════════════════ 8 · the reckoner ════════════════════════ */
+  function reckoner() {
+    const lam = val('k-lam', 0.01, 100, 1), sv = val('k-s', 0.01, 100, 0.8), c = Math.round(val('k-c', 1, 50, 1));
+    const t = val('k-t', 0, 1000, 5), k = Math.round(val('k-k', 0, 150, 3)), mu = 1 / sv, m = lam * t, q = mmc(lam, mu, c), s = q.stable;
+    const none = 'no limit', T = trimNum(t), one = c === 1;
+    let atLeast = 0; if (s) { atLeast = 1; for (let n = 0; n < k; n++) atLeast -= q.pn(n); atLeast = Math.max(0, atLeast); }
+    const groups = [
+      ['Arrivals', [
+        ['Expected arrivals in ' + T + ' minutes', TEX`\lambda t`, fh(m)],
+        ['No arrivals in ' + T + ' minutes', TEX`e^{-\lambda t}`, pc(pois(0, m))],
+        ['Exactly ' + k + ' in ' + T + ' minutes', TEX`e^{-\lambda t}\,\frac{(\lambda t)^{k}}{k!}`, pc(pois(k, m))],
+        ['At least ' + k + ' in ' + T + ' minutes', TEX`1-\sum_{j=0}^{k-1}e^{-\lambda t}\,\frac{(\lambda t)^{j}}{j!}`, pc(k === 0 ? 1 : 1 - poisCdf(k - 1, m))]
+      ]],
+      ['Gaps and the kth arrival', [
+        ['Mean gap between arrivals', TEX`\frac{1}{\lambda}`, dur(1 / lam)],
+        ['Median gap', TEX`\frac{\ln 2}{\lambda}`, dur(Math.LN2 / lam)],
+        ['Next arrival takes longer than ' + T + ' minutes', TEX`P(T>t)=e^{-\lambda t}`, pc(Math.exp(-m))],
+        ['Mean time until arrival number ' + k, TEX`\frac{k}{\lambda}`, dur(k / lam)],
+        ['Arrival number ' + k + ' comes within ' + T + ' minutes', TEX`P(S_k\le t)=P(N(t)\ge k)`, pc(k === 0 ? 1 : erlCdf(k, lam, t))]
+      ]],
+      [one ? 'The queue · M/M/1' : 'The queue · M/M/' + c, [
+        ['Share of time each server is busy', TEX`\rho=\frac{\lambda}{c\mu}`, s ? pc(q.rho) : 'over 100%'],
+        ['Nobody in the system', one ? TEX`p_0=1-\rho` : TEX`p_0=\Bigl[\sum_{j=0}^{c-1}\frac{a^{j}}{j!}+\frac{a^{c}}{c!\,(1-\rho)}\Bigr]^{-1}`, s ? pc(q.p0) : '0%'],
+        ['An arriving customer has to wait', one ? TEX`C=\rho` : TEX`C(c,a)`, s ? pc(q.C) : '100%'],
+        ['Mean number in line', one ? TEX`L_q=\frac{\rho^{2}}{1-\rho}` : TEX`L_q=\frac{C\rho}{1-\rho}`, s ? fh(q.Lq) : none],
+        ['Mean number in the system', one ? TEX`L=\frac{\rho}{1-\rho}` : TEX`L=L_q+a`, s ? fh(q.L) : none],
+        ['Mean wait in line', one ? TEX`W_q=\frac{\rho}{\mu-\lambda}` : TEX`W_q=\frac{C}{c\mu-\lambda}`, s ? dur(q.Wq) : none],
+        ['Mean time in the system', one ? TEX`W=\frac{1}{\mu-\lambda}` : TEX`W=W_q+\frac{1}{\mu}`, s ? dur(q.W) : none],
+        ['Wait in line longer than ' + T + ' minutes', one ? TEX`\rho\,e^{-(\mu-\lambda)t}` : TEX`C\,e^{-(c\mu-\lambda)t}`, s ? pc(q.tail(t)) : '100%'],
+        [k + ' or more in the system', one ? TEX`\rho^{k}` : TEX`\sum_{n\ge k}p_n`, s ? pc(atLeast) : '100%']
+      ]]
+    ];
+    const root = $('rk'); root.innerHTML = '';
+    groups.forEach(gr => {
+      const h = document.createElement('h4'); h.textContent = gr[0]; root.appendChild(h);
+      gr[1].forEach(r => {
+        const d = document.createElement('div'); d.className = 'q';
+        const a = document.createElement('span'); a.textContent = r[0];
+        const mth = document.createElement('span'); mth.className = 'math'; K(mth, r[1]);
+        const b = document.createElement('b'); b.textContent = r[2];
+        d.appendChild(a); d.appendChild(mth); d.appendChild(b); root.appendChild(d);
+      });
+    });
+  }
+
+  /* ════════════════════════ wiring ════════════════════════ */
+  const vis = { door: true, gaps: true, queue: true };
+  function init() {
+    document.querySelectorAll('.tx').forEach(el => K(el, el.textContent, false));
+    document.querySelectorAll('.disp').forEach(el => { const t = el.textContent.trim(); if (t) K(el, t, true); });
+
+    const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const on = (id, ev, fn) => $(id).addEventListener(ev, fn);
+
+    /* the door */
+    doorRestart();
+    D.play = !still; playBtn($('d-play'), D.play);
+    on('d-play', 'click', () => { D.play = !D.play; playBtn($('d-play'), D.play); });
+    on('d-ff', 'click', () => { doorAdvance(D.t + 1000 * D.win); drawDoor(); drawGaps(); });
+    on('d-reset', 'click', doorRestart);
+    const setLam = e => { D.lam = +e.target.value; doorRestart(); };
+    on('s-lam', 'input', setLam); on('s-lam2', 'input', setLam);
+    on('s-win', 'input', e => { D.win = +e.target.value; doorRestart(); });
+    on('s-s', 'input', e => { D.s = +e.target.value; doorLabels(); drawGaps(); });
+    on('g-ff', 'click', () => { doorAdvance(D.t + 1000 / D.lam); drawDoor(); drawGaps(); });
+
+    /* the nth arrival */
+    on('s-n', 'input', e => { N3.n = +e.target.value; drawNth(); });
+    on('s-lam3', 'input', e => { N3.lam = +e.target.value; drawNth(); });
+    on('s-t3', 'input', e => { N3.frac = +e.target.value; drawNth(); });
+    dragX($('cv-erl'), px => {
+      if (!N3.ix) return;
+      N3.frac = Math.max(0, Math.min(1, N3.ix(px) / n3x1())); $('s-t3').value = N3.frac; drawNth();
+    });
+    drawNth();
+
+    /* splitting and racing */
+    lanesSample(); drawLanes(); race();
+    on('s-lam4', 'input', e => { S4.lam = +e.target.value; lanesSample(); drawLanes(); });
+    on('s-p', 'input', e => { S4.p = +e.target.value; drawLanes(); });
+    on('l-new', 'click', () => { S4.seed++; lanesSample(); drawLanes(); });
+    on('s-ra', 'input', e => { S4.a = +e.target.value; race(); });
+    on('s-rb', 'input', e => { S4.b = +e.target.value; race(); });
+
+    /* the counter */
+    Q.speed = +$('q-speed').value; qReset(); qLabels(); drawQueue(true);
+    Q.play = !still; playBtn($('q-play'), Q.play);
+    on('q-play', 'click', () => { Q.play = !Q.play; playBtn($('q-play'), Q.play); });
+    on('q-speed', 'change', e => { Q.speed = +e.target.value; drawQueue(true); });
+    on('q-reset', 'click', () => { qReset(); drawQueue(true); });
+    on('s-ql', 'input', e => { qSetLam(+e.target.value); qLabels(); drawQueue(true); });
+    on('s-qm', 'input', e => { qSetMu(+e.target.value); qLabels(); drawQueue(true); });
+    on('s-qc', 'input', e => { qSetC(+e.target.value); qLabels(); drawQueue(true); });
+
+    /* staffing, the knee, the reckoner */
+    ['t-lam', 't-s', 't-t', 't-sl'].forEach(id => on(id, 'input', tills)); tills();
+    on('s-kr', 'input', e => { KN.rho = +e.target.value; kneeUpdate(); });
+    on('s-kc', 'input', e => { KN.cv = +e.target.value; kneeUpdate(); });
+    on('k-again', 'click', () => { KN.seed++; kneeUpdate(); });
+    dragX($('cv-knee'), px => {
+      if (!KN.ix) return;
+      KN.rho = Math.max(0.05, Math.min(0.98, Math.round(KN.ix(px) * 100) / 100)); $('s-kr').value = KN.rho; kneeUpdate();
+    });
+    kneeSim(); drawKnee();
+    ['k-lam', 'k-s', 'k-c', 'k-t', 'k-k'].forEach(id => on(id, 'input', reckoner)); reckoner();
+
+    /* only animate what is on screen */
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(es => es.forEach(en => { vis[en.target.dataset.vis] = en.isIntersecting; }), { rootMargin: '120px' });
+      [['i-door', 'door'], ['i-gaps', 'gaps'], ['i-queue', 'queue']].forEach(p => { const el = $(p[0]); el.dataset.vis = p[1]; io.observe(el); });
+    }
+    let last = 0;
+    function tick(ts) {
+      const dt = Math.min(0.1, (ts - last) / 1000 || 0); last = ts;
+      if (D.play && (vis.door || vis.gaps)) { doorAdvance(D.t + dt * 0.45 * D.win); drawDoor(); }
+      if (Q.play && vis.queue) { qAdvance(Q.t + dt * Q.speed); drawQueue(false); }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    let rz = 0;
+    function redrawAll() { drawDoor(); drawGaps(); drawNth(); drawLanes(); drawQueue(true); tills(); drawKnee(); }
+    window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(redrawAll, 120); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll).catch(() => {});
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
+</body>
+</html>
